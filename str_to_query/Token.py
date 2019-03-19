@@ -5,30 +5,28 @@ from datetime import datetime, date
 __all__ = ('ContextToken', 'LogicalToken', 'ExpressionToken', 'LimitToken')
 
 
-registered_token_types = {
-    'context': {'open', 'close'},
-    'logical': {'and', 'or'},
-    'expression': {'field', 'value_type', 'value'},
-    'limit': {'start', 'end'}
-}
-
 class Token:
+    REGISTERED_TOKEN_TYPES = {
+        'context': {'open', 'close'},
+        'logical': {'and', 'or'},
+        'expression': {'field', 'value_type', 'value'},
+        'limit': {'start', 'end'}
+    }
+
     def __init__(self, literal, primary_type, secondary_type):
-        if primary_type not in registered_token_types or secondary_type not in registered_token_types[primary_type]:
-            import ipdb; ipdb.set_trace()
-            raise Exception('Attempted to tokenize an unregistered primary/secondary type')
+        if (
+            primary_type not in Token.REGISTERED_TOKEN_TYPES
+            or secondary_type not in Token.REGISTERED_TOKEN_TYPES[primary_type]
+        ):
+            raise Exception(
+                'Attempted to tokenize an unregistered primary/secondary type. Literal value: '
+                f'{literal}, primary_type: {primary_type}, secondary_type: {secondary_type}.'
+            )
         
         self.literal = literal
         self.primary_type = primary_type
         self.secondary_type = secondary_type
         self.string_notation = f'{primary_type}:{secondary_type}'
-    
-    def set_string_notation(self):
-        self.string_notation = f'{self.primary_type}:{self.secondary_type}'
-    
-    def update_secondary_type(self, new_secondary_type):
-        self.secondary_type = new_secondary_type
-        self.set_string_notation()
     
     def __str__(self):
         return self.string_notation
@@ -38,30 +36,33 @@ class ContextToken(Token):
     def __init__(self, literal, secondary_type):
         super().__init__(literal, 'context', secondary_type)
 
+
 class LimitToken(Token):
     def __init__(self, literal, secondary_type):
         super().__init__(literal, 'limit', secondary_type)
 
 
-token_operator = {'and': operator.and_, 'or': operator.or_}
-token_precedence = {'and': 2, 'or': 1}
-
 class LogicalToken(Token):
+    TOKEN_OPERATOR = {'and': operator.and_, 'or': operator.or_}
+    TOKEN_PRECEDENCE = {'and': 2, 'or': 1}
+
     def __init__(self, literal, secondary_type):
         super().__init__(literal, 'logical', secondary_type)
-        self.precedence = token_precedence[self.secondary_type]
-        self.operator = token_operator[self.secondary_type]
+        self.precedence = LogicalToken.TOKEN_PRECEDENCE[self.secondary_type]
+        self.operator = LogicalToken.TOKEN_OPERATOR[self.secondary_type]
 
-value_types = {
-    'int': int,
-    'str': str,
-    'float': float,
-    'decimal': Decimal,
-    'date': date,
-    'datetime': datetime
-}
-    
+
 class ExpressionToken(Token):
+    VALID_VALUE_TYPES = {
+        'int': int,
+        'str': str,
+        'float': float,
+        'decimal': Decimal,
+        # Not yet implemented
+        # 'date': date,
+        # 'datetime': datetime
+    }
+
     def __init__(self, literal, secondary_type):
         super().__init__(literal, 'expression', secondary_type)
 
@@ -79,13 +80,12 @@ class ExpressionToken(Token):
             raise Exception('Invalid lookup expression!')
         
         return splitted_field[0], lookup_expression
-    
+
     def get_value_type_casting_method(self):
         if not self.secondary_type == 'value_type':
             return None
         
         try:
-            return value_types[self.literal]
+            return ExpressionToken.VALID_VALUE_TYPES[self.literal]
         except KeyError:
             raise Exception('Invalid value type!')
-        
