@@ -1,4 +1,4 @@
-from .ast import build_ast
+from .ast import ASTBuilder
 from .tokenizer import Tokenizer
 from .builders import django_builder, dynamodb_builder, sql_alchemy
 
@@ -19,10 +19,11 @@ class QueryBuilder:
         self.export_orm = export_orm
         self.builder = QueryBuilder.EXPORT_ORM_BUILDERS[export_orm]
         self.tokenizer = Tokenizer()
+        self.ast_builder = ASTBuilder()
 
     def __call__(self, string: str):
         tokens = self.tokenizer(string)
-        ast_head = build_ast(tokens)
+        ast_head = self.ast_builder(tokens)
         query = self.builder(ast_head)
 
         return query
